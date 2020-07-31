@@ -17,6 +17,28 @@ class struc_Tile:
         self.block_path = block_path
 
 
+#   ______   .______          __   _______   ______ .___________.    _______.
+#  /  __  \  |   _  \        |  | |   ____| /      ||           |   /       |
+# |  |  |  | |  |_)  |       |  | |  |__   |  ,----'`---|  |----`  |   (----`
+# |  |  |  | |   _  <  .--.  |  | |   __|  |  |         |  |        \   \
+# |  `--'  | |  |_)  | |  `--'  | |  |____ |  `----.    |  |    .----)   |
+#  \______/  |______/   \______/  |_______| \______|    |__|    |_______/
+
+class obj_Actor:
+    def __init__(self, x, y, sprite):
+        self.x = x  # map address
+        self.y = y
+        self.sprite = sprite
+
+    def draw(self):
+        SURFACE_MAIN.blit(self.sprite, (self.x * constants.CELL_WIDTH, self.y * constants.CELL_HEIGHT))
+
+    def move(self, dx, dy):
+        if not GAME_MAP[self.x + dx][self.y + dy].block_path:
+            self.x += dx
+            self.y += dy
+
+
 # .___  ___.      ___      .______
 # |   \/   |     /   \     |   _  \
 # |  \  /  |    /  ^  \    |  |_)  |
@@ -32,6 +54,7 @@ def map_create():
 
     return new_map
 
+
 #  _______  .______          ___   ____    __    ____  __  .__   __.   _______
 # |       \ |   _  \        /   \  \   \  /  \  /   / |  | |  \ |  |  /  _____|
 # |  .--.  ||  |_)  |      /  ^  \  \   \/    \/   /  |  | |   \|  | |  |  __
@@ -42,16 +65,16 @@ def map_create():
 def draw_game():
     global SURFACE_MAIN
 
-    # TODO clear the surface
+    #  clear the surface
     SURFACE_MAIN.fill(constants.COLOR_DEFAULT_BG)
 
-    # TODO draw the map
+    #  draw the map
     draw_map(GAME_MAP)
 
-    # TODO draw the character
-    SURFACE_MAIN.blit(constants.S_PLAYER, (200, 200))
+    #  draw the character
+    PLAYER.draw()
 
-    # TODO update the display
+    #  update the display
     pygame.display.flip()
 
 
@@ -59,11 +82,12 @@ def draw_map(map_to_draw):
     for x in range(0, constants.MAP_WIDTH):
         for y in range(0, constants.MAP_HEIGHT):
             if map_to_draw[x][y].block_path:
-                #draw wall
+                # draw wall
                 SURFACE_MAIN.blit(constants.S_WALL, (x * constants.CELL_WIDTH, y * constants.CELL_HEIGHT))
             else:
+                # draw floor
                 SURFACE_MAIN.blit(constants.S_FLOOR, (x * constants.CELL_WIDTH, y * constants.CELL_HEIGHT))
-                #draw floor
+
 
 #   _______      ___      .___  ___.  _______
 #  /  _____|    /   \     |   \/   | |   ____|
@@ -77,16 +101,25 @@ def game_main_loop():
     game_quit = False
 
     while not game_quit:
-        # TODO get player input
+        #  get player input
         events_list = pygame.event.get()
-        # TODO process input
+        #  process input
         for event in events_list:
             if event.type == pygame.QUIT:
                 game_quit = True
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_k:
+                    PLAYER.move(0, -1)
+                if event.key == pygame.K_j:
+                    PLAYER.move(0, 1)
+                if event.key == pygame.K_h:
+                    PLAYER.move(-1, 0)
+                if event.key == pygame.K_l:
+                    PLAYER.move(1, 0)
 
-        # TODO draw the game
+        #  draw the game
         draw_game()
-    # TODO quit the game
+    #  quit the game
     pygame.quit()
     exit()
 
@@ -94,7 +127,7 @@ def game_main_loop():
 def game_initialize():
     """This function initializes the main window, and pygame"""
 
-    global SURFACE_MAIN, GAME_MAP
+    global SURFACE_MAIN, GAME_MAP, PLAYER
 
     # initialize pygame
     pygame.init()
@@ -103,7 +136,9 @@ def game_initialize():
 
     GAME_MAP = map_create()
 
+    PLAYER = obj_Actor(0, 0, constants.S_PLAYER)
+
+
 if __name__ == '__main__':
     game_initialize()
     game_main_loop()
-
