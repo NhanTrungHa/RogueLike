@@ -25,10 +25,14 @@ class struc_Tile:
 #  \______/  |______/   \______/  |_______| \______|    |__|    |_______/
 
 class obj_Actor:
-    def __init__(self, x, y, sprite):
+    def __init__(self, x, y, name_object, sprite, creature=None):
         self.x = x  # map address
         self.y = y
         self.sprite = sprite
+
+        if creature:
+            self.creature = creature
+            creature.owner = self
 
     def draw(self):
         SURFACE_MAIN.blit(self.sprite, (self.x * constants.CELL_WIDTH, self.y * constants.CELL_HEIGHT))
@@ -37,6 +41,27 @@ class obj_Actor:
         if not GAME_MAP[self.x + dx][self.y + dy].block_path:
             self.x += dx
             self.y += dy
+
+
+#   ____ ___  __  __ ____   ___  _   _ _____ _   _ _____ ____
+#  / ___/ _ \|  \/  |  _ \ / _ \| \ | | ____| \ | |_   _/ ___|
+# | |  | | | | |\/| | |_) | | | |  \| |  _| |  \| | | | \___ \
+# | |__| |_| | |  | |  __/| |_| | |\  | |___| |\  | | |  ___) |
+#  \____\___/|_|  |_|_|    \___/|_| \_|_____|_| \_| |_| |____/
+
+class com_Creature:
+    """
+    Creatures have health, can damage other objects by attacking them. Can also die.
+    """
+
+    def __init__(self, name_instance, hp=10):
+        self.name_instance = name_instance
+        self.hp = hp
+
+
+# class com_Item:
+
+# class com_Container:
 
 
 # .___  ___.      ___      .______
@@ -70,6 +95,8 @@ def draw_game():
 
     #  draw the map
     draw_map(GAME_MAP)
+
+    ENEMY.draw()
 
     #  draw the character
     PLAYER.draw()
@@ -127,7 +154,7 @@ def game_main_loop():
 def game_initialize():
     """This function initializes the main window, and pygame"""
 
-    global SURFACE_MAIN, GAME_MAP, PLAYER
+    global SURFACE_MAIN, GAME_MAP, PLAYER, ENEMY
 
     # initialize pygame
     pygame.init()
@@ -136,7 +163,11 @@ def game_initialize():
 
     GAME_MAP = map_create()
 
-    PLAYER = obj_Actor(0, 0, constants.S_PLAYER)
+    creature_com1 = com_Creature("greg")
+    PLAYER = obj_Actor(0, 0, "python", constants.S_PLAYER, creature=creature_com1)
+
+    creature_com2 = com_Creature("jackie")
+    ENEMY = obj_Actor(15, 15, "crab", constants.S_ENEMY, creature=creature_com2)
 
 
 if __name__ == '__main__':

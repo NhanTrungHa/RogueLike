@@ -24,3 +24,4 @@ COLOR_DEFAULT_BG = COLOR_GREY
 S_PLAYER = pygame.image.load("data/snake.png")
 S_WALL = pygame.image.load("data/wall.png")
 S_FLOOR = pygame.image.load("data/floor.png")
+S_ENEMY = pygame.image.load("data/enemy1.png")
