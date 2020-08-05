@@ -41,27 +41,6 @@ class obj_Actor:
     def draw(self):
         SURFACE_MAIN.blit(self.sprite, (self.x * constants.CELL_WIDTH, self.y * constants.CELL_HEIGHT))
 
-    def move(self, dx, dy):
-
-        tile_is_wall = (GAME_MAP[self.x + dx][self.y + dy].block_path == True)
-
-        target = None
-
-        for object in GAME_OBJECTS:
-            if (object is not self and
-                    object.x == self.x + dx and
-                    object.y == self.y + dy and
-                    object.creature):
-                target = object
-                break
-
-        if target:
-            print(self.creature.name_instance + " attacks " + target.creature.name_instance)
-
-        if not tile_is_wall and target is None:
-            self.x += dx
-            self.y += dy
-
 
 #   ____ ___  __  __ ____   ___  _   _ _____ _   _ _____ ____
 #  / ___/ _ \|  \/  |  _ \ / _ \| \ | | ____| \ | |_   _/ ___|
@@ -74,9 +53,36 @@ class com_Creature:
     Creatures have health, can damage other objects by attacking them. Can also die.
     """
 
-    def __init__(self, name_instance, hp=10):
+    def __init__(self, name_instance, hp=10, death_function=None):
         self.name_instance = name_instance
+        self.maxhp = hp
         self.hp = hp
+        self.death_function = death_function
+
+    def move(self, dx, dy):
+
+        tile_is_wall = (GAME_MAP[self.owner.x + dx][self.owner.y + dy].block_path == True)
+
+        target = map_check_for_creatures(self.owner.x + dx, self.owner.y + dy, exclude_object=self.owner)
+
+        if target:
+            self.attack(target, damage=3)
+
+        if not tile_is_wall and target is None:
+            self.owner.x += dx
+            self.owner.y += dy
+
+    def attack(self, target, damage):
+        print(self.name_instance + " attacks " + target.creature.name_instance + " for " + str(damage) + " damage!")
+        target.creature.take_damage(damage)
+
+    def take_damage(self, damage):
+        self.hp -= damage
+        print(self.name_instance + "'s health is " + str(self.hp) + "/" + str(self.maxhp))
+
+        if self.hp <= 0:
+            if self.death_function is not None:
+                self.death_function(self.owner)
 
 
 # TODO class com_Item
@@ -95,7 +101,14 @@ class ai_Test:
     """
 
     def take_turn(self):
-        self.owner.move(libtcod.random_get_int(0, -1, 1), libtcod.random_get_int(0, -1, 1))
+        self.owner.creature.move(libtcod.random_get_int(0, -1, 1), libtcod.random_get_int(0, -1, 1))
+
+
+def death_monster(monster):
+    """ On death, most monsters stop moving. """
+    print(monster.creature.name_instance + " is dead!")
+    monster.creature = None
+    monster.ai = None
 
 
 # .___  ___.      ___      .______
@@ -119,6 +132,31 @@ def map_create():
         new_map[constants.MAP_WIDTH - 1][y].block_path = True
 
     return new_map
+
+
+def map_check_for_creatures(x, y, exclude_object=None):
+    target = None
+
+    if exclude_object:
+        # check object list to find creature at given location that is not excluded
+        for object in GAME_OBJECTS:
+            if (object is not exclude_object and
+                    object.x == x and
+                    object.y == y and
+                    object.creature):
+                target = object
+                break
+        if target:
+            return target
+
+        # check object list to find any creature at that location
+        else:
+            for object in GAME_OBJECTS:
+                if (object.x == x and
+                        object.y == y and
+                        object.creature):
+                    target = object
+                    break
 
 
 #  _______  .______          ___   ____    __    ____  __  .__   __.   _______
@@ -205,7 +243,7 @@ def game_initialize():
     creature_com1 = com_Creature("greg")
     PLAYER = obj_Actor(1, 1, "python", constants.S_PLAYER, creature=creature_com1)
 
-    creature_com2 = com_Creature("jackie")
+    creature_com2 = com_Creature("jackie", death_function=death_monster)
     ai_com = ai_Test()
     ENEMY = obj_Actor(15, 15, "crab", constants.S_ENEMY, creature=creature_com2, ai=ai_com)
 
@@ -222,19 +260,19 @@ def game_handle_keys():
             return "QUIT"
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_k:
-                PLAYER.move(0, -1)
+                PLAYER.creature.move(0, -1)
                 return "player-moved"
 
             if event.key == pygame.K_j:
-                PLAYER.move(0, 1)
+                PLAYER.creature.move(0, 1)
                 return "player-moved"
 
             if event.key == pygame.K_h:
-                PLAYER.move(-1, 0)
+                PLAYER.creature.move(-1, 0)
                 return "player-moved"
 
             if event.key == pygame.K_l:
-                PLAYER.move(1, 0)
+                PLAYER.creature.move(1, 0)
                 return "player-moved"
     return "no-action"
 
