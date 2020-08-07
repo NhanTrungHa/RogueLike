@@ -1,8 +1,13 @@
+import warnings
+from warnings import filterwarnings
+
 import pygame
 import tcod as libtcod
 
 # game files
 import constants
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 #      _______.___________..______       __    __    ______ .___________.
@@ -15,6 +20,7 @@ import constants
 class struc_Tile:
     def __init__(self, block_path):
         self.block_path = block_path
+        self.explored = False
 
 
 #   ______   .______          __   _______   ______ .___________.    _______.
@@ -39,7 +45,9 @@ class obj_Actor:
             ai.owner = self
 
     def draw(self):
-        SURFACE_MAIN.blit(self.sprite, (self.x * constants.CELL_WIDTH, self.y * constants.CELL_HEIGHT))
+        is_visible = libtcod.map_is_in_fov(FOV_MAP, self.x, self.y)
+        if is_visible:
+            SURFACE_MAIN.blit(self.sprite, (self.x * constants.CELL_WIDTH, self.y * constants.CELL_HEIGHT))
 
 
 #   ____ ___  __  __ ____   ___  _   _ _____ _   _ _____ ____
@@ -122,7 +130,10 @@ def map_create():
     new_map = [[struc_Tile(False) for y in range(0, constants.MAP_HEIGHT)] for x in range(0, constants.MAP_WIDTH)]
 
     new_map[10][10].block_path = True
-    new_map[10][15].block_path = True
+    new_map[10][11].block_path = True
+    new_map[10][12].block_path = True
+    new_map[10][13].block_path = True
+    new_map[10][14].block_path = True
 
     for x in range(constants.MAP_WIDTH):
         new_map[x][0].block_path = True
@@ -130,6 +141,8 @@ def map_create():
     for y in range(constants.MAP_HEIGHT):
         new_map[0][y].block_path = True
         new_map[constants.MAP_WIDTH - 1][y].block_path = True
+
+    map_make_fov(new_map)
 
     return new_map
 
@@ -159,6 +172,26 @@ def map_check_for_creatures(x, y, exclude_object=None):
                     break
 
 
+def map_make_fov(incoming_map):
+    global FOV_MAP
+
+    FOV_MAP = libtcod.map_new(constants.MAP_WIDTH, constants.MAP_HEIGHT)
+
+    for y in range(constants.MAP_HEIGHT):
+        for x in range(constants.MAP_WIDTH):
+            libtcod.map_set_properties(FOV_MAP, x, y,
+                                       not incoming_map[x][y].block_path, not incoming_map[x][y].block_path)
+
+
+def map_calculate_fov():
+    global FOV_CALCULATE
+
+    if FOV_CALCULATE:
+        FOV_CALCULATE = False
+        libtcod.map_compute_fov(FOV_MAP, PLAYER.x, PLAYER.y, constants.TORCH_RADIUS, constants.FOV_LIGHT_WALLS,
+                                constants.FOV_ALGO)
+
+
 #  _______  .______          ___   ____    __    ____  __  .__   __.   _______
 # |       \ |   _  \        /   \  \   \  /  \  /   / |  | |  \ |  |  /  _____|
 # |  .--.  ||  |_)  |      /  ^  \  \   \/    \/   /  |  | |   \|  | |  |  __
@@ -186,12 +219,27 @@ def draw_game():
 def draw_map(map_to_draw):
     for x in range(0, constants.MAP_WIDTH):
         for y in range(0, constants.MAP_HEIGHT):
-            if map_to_draw[x][y].block_path:
-                # draw wall
-                SURFACE_MAIN.blit(constants.S_WALL, (x * constants.CELL_WIDTH, y * constants.CELL_HEIGHT))
-            else:
-                # draw floor
-                SURFACE_MAIN.blit(constants.S_FLOOR, (x * constants.CELL_WIDTH, y * constants.CELL_HEIGHT))
+
+            if_visible = libtcod.map_is_in_fov(FOV_MAP, x, y)
+
+            if if_visible:
+
+                map_to_draw[x][y].explored = True
+
+                if map_to_draw[x][y].block_path:
+                    # draw wall
+                    SURFACE_MAIN.blit(constants.S_WALL, (x * constants.CELL_WIDTH, y * constants.CELL_HEIGHT))
+                else:
+                    # draw floor
+                    SURFACE_MAIN.blit(constants.S_FLOOR, (x * constants.CELL_WIDTH, y * constants.CELL_HEIGHT))
+
+            elif map_to_draw[x][y].explored:
+                if map_to_draw[x][y].block_path:
+                    # draw wall
+                    SURFACE_MAIN.blit(constants.S_WALLEXPLORED, (x * constants.CELL_WIDTH, y * constants.CELL_HEIGHT))
+                else:
+                    # draw floor
+                    SURFACE_MAIN.blit(constants.S_FLOOREXPLORED, (x * constants.CELL_WIDTH, y * constants.CELL_HEIGHT))
 
 
 #   _______      ___      .___  ___.  _______
@@ -213,6 +261,8 @@ def game_main_loop():
         # handle player input
         player_action = game_handle_keys()
 
+        map_calculate_fov()
+
         if player_action == "QUIT":
             game_quit = True
         elif player_action != "no-action":
@@ -230,7 +280,7 @@ def game_main_loop():
 def game_initialize():
     """This function initializes the main window, and pygame"""
 
-    global SURFACE_MAIN, GAME_MAP, PLAYER, ENEMY, GAME_OBJECTS
+    global SURFACE_MAIN, GAME_MAP, PLAYER, ENEMY, GAME_OBJECTS, FOV_CALCULATE
 
     # initialize pygame
     pygame.init()
@@ -239,6 +289,8 @@ def game_initialize():
                                             constants.MAP_HEIGHT * constants.CELL_HEIGHT))
 
     GAME_MAP = map_create()
+
+    FOV_CALCULATE = True
 
     creature_com1 = com_Creature("greg")
     PLAYER = obj_Actor(1, 1, "python", constants.S_PLAYER, creature=creature_com1)
@@ -251,6 +303,7 @@ def game_initialize():
 
 
 def game_handle_keys():
+    global FOV_CALCULATE
     #  get player input
     events_list = pygame.event.get()
 
@@ -261,19 +314,21 @@ def game_handle_keys():
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_k:
                 PLAYER.creature.move(0, -1)
+                FOV_CALCULATE = True
                 return "player-moved"
-
             if event.key == pygame.K_j:
                 PLAYER.creature.move(0, 1)
+                FOV_CALCULATE = True
                 return "player-moved"
-
             if event.key == pygame.K_h:
                 PLAYER.creature.move(-1, 0)
+                FOV_CALCULATE = True
                 return "player-moved"
-
             if event.key == pygame.K_l:
                 PLAYER.creature.move(1, 0)
+                FOV_CALCULATE = True
                 return "player-moved"
+
     return "no-action"
 
 
